@@ -14,7 +14,7 @@ export const MELODY = {
 };
 
 export const OTTO = {
-  /** Otto runs as its own app on GitHub Pages and is embedded here. */
-  app: "https://slamduncaan747.github.io/Poker-rl/",
+  /** Otto runs as its own app (GitHub Pages) and is embedded here; override for local development. */
+  app: process.env.NEXT_PUBLIC_OTTO_URL ?? "https://slamduncaan747.github.io/Poker-rl/",
   code: "https://github.com/slamduncaan747/Poker-rl",
 };

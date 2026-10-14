@@ -18,12 +18,11 @@ const mono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://dl8ai.com"),
-  title: { default: "DL8 AI — AI projects by Duncan Larzelere", template: "%s · DL8 AI" },
-  description:
-    "AI research you can play with: Melody Diffuser turns hand gestures into melodies, and Otto is a poker AI that learns how you play.",
+  title: { default: "DL8 AI — Projects by Duncan Larzelere", template: "%s · DL8 AI" },
+  description: "Machine learning projects by Duncan Larzelere: Melody Diffuser, a gesture-conditioned diffusion model for melody, and Otto, an adaptive poker AI.",
   openGraph: {
-    title: "DL8 AI — AI projects by Duncan Larzelere",
-    description: "Melody Diffuser turns hand gestures into melodies. Otto is a poker AI that learns how you play.",
+    title: "DL8 AI — Projects by Duncan Larzelere",
+    description: "Melody Diffuser, a gesture-conditioned diffusion model for melody, and Otto, an adaptive poker AI.",
     url: "https://dl8ai.com",
     siteName: "DL8 AI",
     type: "website",

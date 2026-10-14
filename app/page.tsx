@@ -1,129 +1,114 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ProjectCard } from "@/components/ProjectCard";
-import { MELODY, OTTO, SITE } from "@/lib/site";
+import type { ReactNode } from "react";
+import { PROJECTS, type Project } from "@/lib/projects";
+import { SITE } from "@/lib/site";
 
-const THREAD = [
-  {
-    title: "Built from scratch",
-    melody: "Diffusion transformer, noise schedule and training loop written in PyTorch.",
-    otto: "Game engine, equilibrium solver and reinforcement learning written in TypeScript.",
-  },
-  {
-    title: "Measured, not just demoed",
-    melody: "A written paper; validation on 100,000 held-out melodies.",
-    otto: "30,000-hand duplicate matches with confidence intervals; tested on 40 unseen opponents.",
-  },
-  {
-    title: "Made to be played",
-    melody: "Your webcam tracks your finger in real time and the model writes the tune.",
-    otto: "The whole AI runs in your browser and explains every adjustment it makes.",
-  },
-];
+/** What each project shows on the index. */
+const MEDIA: Record<string, ReactNode> = {
+  "melody-diffuser": (
+    <video
+      src="/melody-demo.mp4"
+      poster="/melody-poster.jpg"
+      autoPlay
+      muted
+      loop
+      playsInline
+      preload="metadata"
+      className="h-full w-full object-cover"
+      aria-label="Melody Diffuser: a melody generated from hand gestures, shown as a piano roll"
+    />
+  ),
+  otto: (
+    <Image
+      src="/otto-paper.png"
+      alt="Otto after a hand: the poker table and each of the player's decisions rated from Best to Blunder"
+      fill
+      sizes="(min-width: 1024px) 620px, 100vw"
+      className="object-cover object-left-top"
+    />
+  ),
+};
 
 export default function Home() {
   return (
-    <div>
-      <section className="container pb-12 pt-14 sm:pb-16 sm:pt-20">
-        <p className="label">
-          {SITE.name} · {SITE.author}
+    <div className="container pb-20">
+      <header className="pb-12 pt-14 sm:pb-16 sm:pt-20">
+        <p className="label">{SITE.name}</p>
+        <h1 className="mt-4">Projects</h1>
+        <p className="mt-5 max-w-[560px] text-[17px] leading-relaxed">
+          Machine learning work by {SITE.author}. Each project has a live demo, its source code and a technical write-up.
         </p>
-        <h1 className="mt-4 max-w-[820px]">
-          AI research you can <span style={{ color: "var(--blue)" }}>play</span> <span style={{ color: "var(--orange)" }}>with</span>.
-        </h1>
-        <p className="mt-5 max-w-[620px] text-[17.5px] leading-relaxed">
-          I build machine-learning systems end to end — data, architecture, training and evaluation — and then turn them into something anyone can try in a browser. Two of them live here.
-        </p>
-      </section>
+      </header>
 
-      <section className="container grid gap-6 pb-20 lg:grid-cols-2" aria-label="Projects">
-        <ProjectCard
-          index="01"
-          field="Generative music"
-          name="Melody Diffuser"
-          pitch="Compose a melody by moving your finger. A diffusion transformer turns the shape of your gesture into music."
-          accent="var(--blue)"
-          media={<video src="/melody-demo.mp4" poster="/melody-poster.jpg" autoPlay muted loop playsInline preload="metadata" className="h-full w-full object-cover" aria-label="Melody Diffuser demo: a finger traces a melody in front of a webcam" />}
-          stats={[
-            { value: "32M", label: "parameter diffusion transformer" },
-            { value: "10M+", label: "melodies in the training set" },
-            { value: "64", label: "denoising steps, gesture-guided" },
-          ]}
-          stack={["PyTorch", "Discrete diffusion", "Cross-attention", "MediaPipe", "Replicate"]}
-          primary={{ href: "/melody-diffuser", label: "Try the demo", className: "btn-melody" }}
-          secondary={{ href: "/research#melody-diffuser", label: "Research" }}
-          code={MELODY.code}
-        />
-        <ProjectCard
-          index="02"
-          field="Game AI"
-          name="Otto"
-          pitch="A poker AI that learns how you play. It starts unbeatable, reads your habits, then leans its strategy to exploit them."
-          accent="var(--orange)"
-          dark
-          media={
-            <Image
-              src="/otto-table.png"
-              alt="Otto's poker table after a hand, with each of the player's decisions marked Best, Good or Blunder"
-              fill
-              sizes="(min-width: 1024px) 560px, 100vw"
-              className="object-cover object-[40%_30%]"
-            />
-          }
-          stats={[
-            { value: "+95", label: "big blinds per 100 hands gained by adapting" },
-            { value: "39/40", label: "unseen opponents where adapting won more" },
-            { value: "66M", label: "games of self-play" },
-          ]}
-          stack={["TypeScript", "Monte Carlo CFR", "Bayesian modelling", "PPO", "Web Workers"]}
-          primary={{ href: "/otto", label: "Play Otto", className: "btn-otto" }}
-          secondary={{ href: "/otto?view=how", label: "Write-up" }}
-          code={OTTO.code}
-        />
-      </section>
+      <ol>
+        {PROJECTS.map((p) => (
+          <ProjectRow key={p.slug} p={p} media={MEDIA[p.slug]} />
+        ))}
+      </ol>
 
-      <section className="border-y border-[var(--border)] bg-[var(--surface)]/70">
-        <div className="container py-16 sm:py-20">
-          <p className="label">The common thread</p>
-          <h2 className="mt-3 max-w-[640px]">Two very different problems, one way of working.</h2>
-          <div className="mt-10 grid gap-10 md:grid-cols-3">
-            {THREAD.map((t) => (
-              <div key={t.title}>
-                <h3>{t.title}</h3>
-                <ul className="mt-4 flex flex-col gap-3 text-[14.5px] leading-relaxed text-[var(--gray)]">
-                  <li className="flex gap-3">
-                    <span className="mt-[7px] h-2 w-2 shrink-0 rounded-full bg-[var(--blue)]" aria-label="Melody Diffuser" />
-                    {t.melody}
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="mt-[7px] h-2 w-2 shrink-0 rounded-full bg-[var(--orange)]" aria-label="Otto" />
-                    {t.otto}
-                  </li>
-                </ul>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="container grid items-center gap-10 py-16 sm:py-20 md:grid-cols-[200px_1fr]">
-        <Image src="/profile.jpeg" alt={SITE.author} width={200} height={200} className="h-[160px] w-[160px] rounded-2xl border border-[var(--border)] object-cover md:h-[200px] md:w-[200px]" />
-        <div>
-          <p className="label">About</p>
-          <h2 className="mt-3">{SITE.author}</h2>
-          <p className="mt-3 max-w-[620px] text-[16px] leading-relaxed">
-            Independent AI researcher at East Lansing High School. I like problems where a model has to work with a person in real time — following a gesture, or adapting to an opponent — and I build every piece myself, from the training pipeline to the interface.
-          </p>
-          <div className="mt-6 flex flex-wrap items-center gap-3">
-            <Link href="/contact" className="btn btn-primary">
-              Get in touch
-            </Link>
-            <a href={SITE.github} target="_blank" rel="noopener noreferrer" className="btn btn-ghost">
-              GitHub ↗
-            </a>
-          </div>
-        </div>
-      </section>
+      <p className="label border-t border-[var(--border)] pt-8">More projects to come.</p>
     </div>
+  );
+}
+
+function ProjectRow({ p, media }: { p: Project; media: ReactNode }) {
+  const home = p.tabs[0];
+  const writeUp = p.tabs.find((t) => t.label === "Write-up");
+  return (
+    <li className="grid gap-8 border-t border-[var(--border)] py-12 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-14">
+      <Link href={home.href} className="group relative block aspect-[16/10] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]" aria-label={`Open ${p.name}`}>
+        <div className="absolute inset-0 transition-transform duration-500 group-hover:scale-[1.015]">{media}</div>
+      </Link>
+
+      <div className="flex flex-col">
+        <p className="label flex gap-2">
+          <span style={{ color: p.accent }}>{p.index}</span>
+          <span>{p.kind}</span>
+        </p>
+        <h2 className="mt-3">
+          <Link href={home.href} className="hover:underline hover:decoration-2 hover:underline-offset-4" style={{ textDecorationColor: p.accent }}>
+            {p.name}
+          </Link>
+        </h2>
+        <p className="mt-3 text-[16px] leading-relaxed">{p.summary}</p>
+
+        <dl className="mt-6 grid grid-cols-3 gap-4">
+          {p.facts.map((f) => (
+            <div key={f.label}>
+              <dt className="sr-only">{f.label}</dt>
+              <dd className="font-mono text-[20px] font-semibold leading-none tracking-tight text-[var(--black)]">{f.value}</dd>
+              <dd className="mt-1.5 text-[12.5px] leading-snug text-[var(--gray-light)]">{f.label}</dd>
+            </div>
+          ))}
+        </dl>
+
+        <ul className="mt-6 flex flex-wrap gap-1.5" aria-label="Built with">
+          {p.stack.map((t) => (
+            <li key={t} className="rounded-md border border-[var(--border)] px-2 py-0.5 font-mono text-[11.5px] text-[var(--gray)]">
+              {t}
+            </li>
+          ))}
+        </ul>
+
+        <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
+          <Link href={home.href} className="btn btn-primary">
+            {home.label === "Play" ? "Play" : "Open demo"}
+          </Link>
+          {writeUp && (
+            <Link href={writeUp.href} className="link-arrow">
+              Write-up →
+            </Link>
+          )}
+          {p.links
+            .filter((l) => l.label === "Code")
+            .map((l) => (
+              <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer" className="link-arrow">
+                Code ↗
+              </a>
+            ))}
+        </div>
+      </div>
+    </li>
   );
 }

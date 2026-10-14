@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { ModeSelection } from "@/components/melody-diffuser/ModeSelection";
 import { Tutorial } from "@/components/melody-diffuser/Tutorial";
 import { GestureCapture } from "@/components/melody-diffuser/GestureCapture";
 import { GenerationView } from "@/components/melody-diffuser/GenerationView";
 import { ResultView } from "@/components/melody-diffuser/ResultView";
 import { MODE_CONFIGS } from "@/lib/types";
-import { MELODY } from "@/lib/site";
+import { ProjectBar } from "@/components/ProjectBar";
+import { project } from "@/lib/projects";
 import type { ModeConfig, AppState, GenerationResult } from "@/lib/types";
 
 export default function MelodyDiffuserPage() {
@@ -62,31 +62,17 @@ export default function MelodyDiffuserPage() {
 
   return (
     <div className="flex min-h-[calc(100dvh-64px)] flex-col">
-      {/* Project strip */}
-      <div className="border-b border-[var(--border)] bg-[var(--surface)]/80">
-        <div className="container flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-3">
-          <div className="flex items-baseline gap-3">
-            <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-[var(--blue)]">01 · Generative music</span>
-            <span className="text-[14px] text-[var(--gray)]">Compose a melody with your finger.</span>
-          </div>
-          <div className="flex items-center gap-5 text-[13.5px] text-[var(--gray)]">
-            <Link href="/research#melody-diffuser" className="hover:text-[var(--black)]">
-              How it works
-            </Link>
-            <a href={MELODY.code} target="_blank" rel="noopener noreferrer" className="hover:text-[var(--black)]">
-              Code ↗
-            </a>
-            {showBackButton && (
-              <button onClick={handleReset} className="font-semibold text-[var(--black)] hover:text-[var(--blue)]">
-                Start over
-              </button>
-            )}
-          </div>
+      <ProjectBar project={project("melody-diffuser")} active="demo" />
+      {showBackButton && (
+        <div className="container flex justify-end pt-4">
+          <button onClick={handleReset} className="font-mono text-[12px] uppercase tracking-[0.08em] text-[var(--gray-light)] hover:text-[var(--black)]">
+            Start over
+          </button>
         </div>
-      </div>
+      )}
 
       {/* Main content */}
-      <main className="flex-1 flex items-center py-12">
+      <div className="flex flex-1 items-center py-12">
         <div className="container">
           {appState === "mode-selection" && (
             <ModeSelection 
@@ -129,7 +115,7 @@ export default function MelodyDiffuserPage() {
             />
           )}
         </div>
-      </main>
+      </div>
     </div>
   );
 }
