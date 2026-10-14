@@ -1,0 +1,200 @@
+@import "tailwindcss";
+
+:root {
+  /* DL8 paper and ink */
+  --bg: #f5f5f0;
+  --bg-card: #eceae4;
+  --surface: #fbfbf8;
+  --black: #191919;
+  --gray: #4a4a4a;
+  --gray-light: #777777;
+  --border: #d8d5ce;
+  --navy: #0b2447;
+
+  /* project accents */
+  --blue: #576cbc; /* Melody Diffuser */
+  --blue-light: #a5d7e8;
+  --orange: #e8743b; /* Otto */
+  --otto-ink: #121417;
+  --otto-line: #343940;
+
+  /* names used by the Melody Diffuser demo components */
+  --text-primary: var(--black);
+  --text-secondary: var(--gray);
+  --bg-canvas: var(--bg);
+  --bg-surface: var(--surface);
+}
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--black);
+  --font-sans: var(--font-jakarta), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+}
+
+* {
+  -webkit-font-smoothing: antialiased;
+}
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--bg);
+  /* the faint drafting grid both projects share */
+  background-image:
+    linear-gradient(rgba(25, 25, 25, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(25, 25, 25, 0.035) 1px, transparent 1px);
+  background-size: 24px 24px;
+  color: var(--black);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+h1 {
+  font-size: clamp(2.25rem, 5vw, 3.75rem);
+  font-weight: 800;
+  line-height: 1.04;
+  letter-spacing: -0.03em;
+}
+h2 {
+  font-size: clamp(1.5rem, 2.6vw, 2rem);
+  font-weight: 750;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+h3 {
+  font-size: 1.0625rem;
+  font-weight: 650;
+}
+p {
+  color: var(--gray);
+}
+
+.container {
+  max-width: 1160px;
+  margin-inline: auto;
+  /* inline only, so Tailwind's py-/pt- utilities still apply */
+  padding-inline: 24px;
+}
+
+/* small monospaced label, borrowed from Otto's drafting style */
+.label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gray-light);
+}
+/* older name used by the demo components */
+.tag {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--blue);
+}
+
+.nav-link {
+  font-size: 14.5px;
+  font-weight: 550;
+  color: var(--gray);
+  transition: color 0.15s;
+}
+.nav-link:hover,
+.nav-link[aria-current="page"] {
+  color: var(--black);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding-inline: 20px;
+  font-size: 14.5px;
+  font-weight: 650;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    transform 0.15s;
+  white-space: nowrap;
+}
+.btn:active {
+  transform: translateY(1px);
+}
+.btn-primary {
+  background: var(--navy);
+  color: white;
+}
+.btn-primary:hover {
+  background: #133463;
+}
+.btn-ghost {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--black);
+}
+.btn-ghost:hover {
+  border-color: var(--black);
+}
+.btn-melody {
+  background: var(--blue);
+  color: white;
+}
+.btn-melody:hover {
+  background: #4a5daa;
+}
+.btn-otto {
+  background: var(--orange);
+  color: var(--otto-ink);
+}
+.btn-otto:hover {
+  background: #f08650;
+}
+
+.link-arrow {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--black);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: gap 0.15s;
+}
+.link-arrow:hover {
+  gap: 10px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.divider {
+  height: 1px;
+  background: var(--border);
+}
+
+pre {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 18px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  overflow-x: auto;
+  line-height: 1.6;
+}
+
+::selection {
+  background: var(--blue);
+  color: white;
+}
