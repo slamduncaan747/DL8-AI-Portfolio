@@ -7,7 +7,6 @@ import * as Tone from "tone";
 
 const NOTE_HOLD = 128;
 const REST = 129;
-const REPEAT = 1; // Repeat gesture - repeats previous note
 
 export interface MelodyNote {
   pitch: number;
@@ -17,12 +16,11 @@ export interface MelodyNote {
 
 /**
  * Convert a sequence of pitch tokens into note events
- * Handles HOLD (128), REST (129), and REPEAT (1) gestures
+ * Handles HOLD (128) and REST (129)
  */
 export function parseMelodyTokens(tokens: number[], stepDuration: number = 0.2): MelodyNote[] {
   const notes: MelodyNote[] = [];
   let currentNote: MelodyNote | null = null;
-  let lastPitch: number | null = null; // Track last actual pitch for REPEAT
   let currentTime = 0;
 
   for (const pitch of tokens) {
@@ -38,20 +36,6 @@ export function parseMelodyTokens(tokens: number[], stepDuration: number = 0.2):
         currentNote.duration += stepDuration;
       }
       // Don't advance currentTime separately, it's done at the end
-    } else if (pitch === REPEAT) {
-      // Repeat - start a new note with the same pitch as last
-      if (currentNote) {
-        notes.push(currentNote);
-      }
-      if (lastPitch !== null) {
-        currentNote = {
-          pitch: lastPitch,
-          startTime: currentTime,
-          duration: stepDuration,
-        };
-      } else {
-        currentNote = null; // Can't repeat if no previous note
-      }
     } else if (pitch >= 0 && pitch <= 127) {
       // New note - push current and start new
       if (currentNote) {
@@ -62,7 +46,6 @@ export function parseMelodyTokens(tokens: number[], stepDuration: number = 0.2):
         startTime: currentTime,
         duration: stepDuration,
       };
-      lastPitch = pitch; // Remember this pitch for REPEAT
     }
     currentTime += stepDuration;
   }
@@ -247,7 +230,6 @@ export function analyzeMelody(tokens: number[]): {
   noteCount: number;
   restCount: number;
   holdCount: number;
-  repeatCount: number;
   pitchRange: { min: number; max: number };
   averagePitch: number;
 } {
@@ -257,7 +239,6 @@ export function analyzeMelody(tokens: number[]): {
     noteCount: pitches.length,
     restCount: tokens.filter((t) => t === REST).length,
     holdCount: tokens.filter((t) => t === NOTE_HOLD).length,
-    repeatCount: tokens.filter((t) => t === REPEAT).length,
     pitchRange: {
       min: pitches.length > 0 ? Math.min(...pitches) : 0,
       max: pitches.length > 0 ? Math.max(...pitches) : 0,
@@ -266,4 +247,48 @@ export function analyzeMelody(tokens: number[]): {
       ? Math.round(pitches.reduce((a, b) => a + b, 0) / pitches.length)
       : 0,
   };
+}
+
+/** Seconds per sixteenth-note step during playback (75 BPM). */
+export const STEP_SECONDS = 0.2;
+
+/**
+ * A standard MIDI file (format 0, one track) of the melody, at the same tempo
+ * it plays at here.
+ */
+export function melodyToMidi(tokens: number[]): Uint8Array {
+  const PPQ = 480;
+  const tick = PPQ / 4; // one sixteenth
+  const usPerQuarter = Math.round(STEP_SECONDS * 4 * 1e6);
+  const notes = parseMelodyTokens(tokens, 1);
+
+  const events: Array<{ t: number; bytes: number[] }> = [];
+  for (const n of notes) {
+    const on = Math.round(n.startTime * tick);
+    const off = Math.round((n.startTime + n.duration) * tick) - 1;
+    events.push({ t: on, bytes: [0x90, n.pitch, 90] }, { t: off, bytes: [0x80, n.pitch, 0] });
+  }
+  events.sort((a, b) => a.t - b.t || a.bytes[0] - b.bytes[0]);
+
+  const vlq = (v: number) => {
+    const out = [v & 0x7f];
+    while ((v >>= 7)) out.unshift((v & 0x7f) | 0x80);
+    return out;
+  };
+  const track: number[] = [
+    0, 0xff, 0x51, 3, (usPerQuarter >> 16) & 0xff, (usPerQuarter >> 8) & 0xff, usPerQuarter & 0xff, // tempo
+    0, 0xff, 0x58, 4, 4, 2, 24, 8, // 4/4
+  ];
+  let last = 0;
+  for (const e of events) {
+    track.push(...vlq(e.t - last), ...e.bytes);
+    last = e.t;
+  }
+  track.push(...vlq(Math.max(0, tokens.length * tick - last)), 0xff, 0x2f, 0); // end of track
+
+  const u32 = (v: number) => [(v >>> 24) & 0xff, (v >>> 16) & 0xff, (v >>> 8) & 0xff, v & 0xff];
+  return new Uint8Array([
+    ...[0x4d, 0x54, 0x68, 0x64], ...u32(6), 0, 0, 0, 1, (PPQ >> 8) & 0xff, PPQ & 0xff, // MThd
+    ...[0x4d, 0x54, 0x72, 0x6b], ...u32(track.length), ...track, // MTrk
+  ]);
 }

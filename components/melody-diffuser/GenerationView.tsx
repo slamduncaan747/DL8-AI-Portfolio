@@ -1,183 +1,145 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import type { ModeConfig, GenerationResult } from "@/lib/types";
-import { GESTURE_COLORS } from "@/lib/types";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { GenerationResult } from "@/lib/types";
+import { Contour } from "./Contour";
 
 interface GenerationViewProps {
-  mode: ModeConfig;
-  gestures: number[];
+  /** the 64 gesture tokens sent to the model */
+  tokens: number[];
   onComplete: (result: GenerationResult) => void;
-  onError: () => void;
+  onRetake: () => void;
+  onBack: () => void;
 }
 
-export function GenerationView({ mode, gestures, onComplete, onError }: GenerationViewProps) {
-  const [status, setStatus] = useState("Preparing input...");
+type Status = "sending" | "starting" | "processing" | "failed";
+
+const POLL_MS = 1500;
+/** give up after this long (a cold start is usually a few minutes) */
+const TIMEOUT_MS = 6 * 60 * 1000;
+
+export function GenerationView({ tokens, onComplete, onRetake, onBack }: GenerationViewProps) {
+  const [status, setStatus] = useState<Status>("sending");
   const [error, setError] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<number[]>([]);
-  const [showColdStartNotice, setShowColdStartNotice] = useState(false);
-  const hasStarted = useRef(false);
-  const startTime = useRef<number>(0);
+  const [elapsed, setElapsed] = useState(0);
+  const run = useRef(0);
 
-  useEffect(() => {
-    if (hasStarted.current) return;
-    hasStarted.current = true;
-    startTime.current = Date.now();
-
-    const generate = async () => {
-      // Expand gestures to 64 tokens
-      let exp: number[];
-      if (!mode.expandGestures) {
-        exp = gestures.slice(0, 64);
-      } else {
-        const per = Math.floor(64 / gestures.length);
-        exp = [];
-        for (const g of gestures) {
-          exp.push(g);
-          for (let i = 0; i < per - 1; i++) exp.push(0);
-        }
-      }
-      while (exp.length < 64) exp.push(0);
-      exp = exp.slice(0, 64);
-      setExpanded(exp);
-
-      await new Promise(r => setTimeout(r, 600));
-      setStatus("Calling AI model...");
-
-      // Show cold start notice after 20 seconds
-      const coldStartTimer = setTimeout(() => {
-        setShowColdStartNotice(true);
-      }, 20000);
-
-      try {
-        const res = await fetch("/api/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            gestures: exp,
-            cfgScale: 2,
-            temperature: 1,
-            topP: 0.95,
-            useCfg: true,
-          }),
-        });
-
-        clearTimeout(coldStartTimer);
-
-        if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error || "Generation failed");
-        }
-
-        const data = await res.json();
-        const elapsed = Math.round((Date.now() - startTime.current) / 1000);
-        console.log(`Generation completed in ${elapsed}s`);
-        
-        setStatus("Complete!");
-        await new Promise(r => setTimeout(r, 400));
-        onComplete({ melody: data.melody });
-      } catch (e) {
-        clearTimeout(coldStartTimer);
-        setError(e instanceof Error ? e.message : "Failed to generate melody");
-      }
+  const generate = useCallback(async () => {
+    const id = ++run.current;
+    const alive = () => id === run.current;
+    const started = Date.now();
+    setStatus("sending");
+    setError(null);
+    setElapsed(0);
+    const timer = setInterval(() => alive() && setElapsed(Math.floor((Date.now() - started) / 1000)), 1000);
+    const fail = (msg: string) => {
+      if (!alive()) return;
+      setError(msg);
+      setStatus("failed");
     };
 
-    generate();
-  }, [gestures, mode, onComplete]);
+    try {
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gestures: tokens, cfgScale: 2, temperature: 1, topP: 0.95, useCfg: true }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.id) return fail(data.error || "The model service could not be reached.");
+      if (!alive()) return;
+      setStatus(data.status === "processing" ? "processing" : "starting");
 
-  if (error) {
-    const isConfig = error.includes("API token") || error.includes("REPLICATE");
-    return (
-      <div className="max-w-md mx-auto text-center py-8">
-        <h2 className="text-xl font-semibold mb-3">
-          {isConfig ? "Configuration required" : "Generation failed"}
-        </h2>
-        <p className="text-[var(--text-secondary)] mb-6 text-sm">{error}</p>
-        {isConfig && (
-          <div className="bg-[var(--bg-canvas)] rounded-lg p-4 mb-6 text-left">
-            <p className="text-xs text-[var(--text-secondary)] mb-2">To use this demo:</p>
-            <ol className="text-xs text-[var(--text-secondary)] space-y-1 list-decimal list-inside">
-              <li>Get your API token from replicate.com/account/api-tokens</li>
-              <li>Create <code className="bg-[var(--bg-surface)] px-1 rounded">.env.local</code></li>
-              <li>Add <code className="bg-[var(--bg-surface)] px-1 rounded">REPLICATE_API_TOKEN=your_token</code></li>
-              <li>Restart the dev server</li>
-            </ol>
-          </div>
-        )}
-        <button onClick={onError} className="btn btn-primary">
-          Back
-        </button>
-      </div>
-    );
-  }
+      let misses = 0;
+      while (alive()) {
+        if (Date.now() - started > TIMEOUT_MS) return fail("The model took too long to respond. It may still be starting up, so try again in a minute.");
+        await new Promise((r) => setTimeout(r, POLL_MS));
+        if (!alive()) return;
+        let poll: { status?: string; melody?: number[]; error?: string };
+        try {
+          const r = await fetch(`/api/generate?id=${encodeURIComponent(data.id)}`, { cache: "no-store" });
+          poll = await r.json();
+          if (!r.ok) throw new Error(poll.error);
+          misses = 0;
+        } catch (e) {
+          // ride out brief network blips
+          if (++misses >= 4) return fail(e instanceof Error && e.message ? e.message : "Lost contact with the server.");
+          continue;
+        }
+        if (!alive()) return;
+        if (poll.status === "succeeded" && poll.melody?.length) return onComplete({ melody: poll.melody });
+        if (poll.status === "failed") return fail(poll.error || "The model couldn't finish this melody.");
+        setStatus(poll.status === "processing" ? "processing" : "starting");
+      }
+    } catch {
+      fail("Couldn't reach the server. Check your connection and try again.");
+    } finally {
+      clearInterval(timer);
+    }
+  }, [tokens, onComplete]);
+
+  useEffect(() => {
+    generate();
+    const r = run;
+    return () => {
+      r.current++; // stop polling when leaving this view
+    };
+  }, [generate]);
+
+  const steps: Array<{ label: string; state: "done" | "active" | "todo" }> = [
+    { label: "Send your gestures", state: status === "sending" ? "active" : "done" },
+    { label: "Start the model", state: status === "sending" ? "todo" : status === "starting" ? "active" : "done" },
+    { label: "Write the melody", state: status === "processing" ? "active" : "todo" },
+  ];
 
   return (
-    <div className="max-w-lg mx-auto text-center">
-      <h2 className="text-xl font-semibold mb-2">{status}</h2>
-      <p className="text-[var(--text-secondary)] mb-8 text-sm">
-        The AI is processing your gestures into music
+    <div className="mx-auto max-w-lg">
+      <h2 className="mb-1 text-center text-xl font-semibold">{status === "failed" ? "Something went wrong" : "Writing your melody"}</h2>
+      <p className="mb-8 text-center text-sm text-[var(--text-secondary)]">
+        {status === "failed" ? error : "The model is writing a melody that follows the shape you drew."}
       </p>
 
-      {/* Cold start notice */}
-      <AnimatePresence>
-        {showColdStartNotice && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-left"
-          >
-            <div className="flex items-start gap-3">
-              <span className="text-xl">⏱️</span>
-              <div>
-                <div className="font-semibold text-sm text-blue-900 mb-1">
-                  Waking up the GPU
-                </div>
-                <p className="text-xs text-blue-800 leading-relaxed">
-                  This first generation may take up to 5 minutes while the system initializes. 
-                  After this, subsequent generations will complete in 10–20 seconds.
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Loading animation */}
-      <div className="flex justify-center gap-2 mb-8">
-        {[0, 1, 2].map(i => (
-          <motion.div
-            key={i}
-            className="w-2.5 h-2.5 rounded-full bg-[var(--text-primary)]"
-            animate={{ 
-              y: [0, -12, 0],
-              opacity: [0.3, 1, 0.3] 
-            }}
-            transition={{ 
-              duration: 0.9, 
-              repeat: Infinity, 
-              delay: i * 0.15 
-            }}
-          />
-        ))}
+      <div className="mb-8 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
+        <div className="label mb-2">The shape you drew</div>
+        <Contour tokens={tokens} />
       </div>
 
-      {/* Input preview */}
-      {expanded.length > 0 && (
-        <div>
-          <div className="text-xs text-[var(--text-secondary)] mb-2 font-mono">
-            Your gestures ({expanded.length} tokens)
-          </div>
-          <div className="flex justify-center gap-px flex-wrap max-w-sm mx-auto">
-            {expanded.map((g, i) => (
-              <div
-                key={i}
-                className="w-3 h-3 rounded-sm"
-                style={{ backgroundColor: GESTURE_COLORS[g] }}
-              />
+      {status !== "failed" ? (
+        <>
+          <ol className="mb-6 space-y-2">
+            {steps.map((s) => (
+              <li key={s.label} className="flex items-center gap-3 text-sm">
+                <span
+                  className={`flex h-5 w-5 items-center justify-center rounded-full border text-[11px] ${
+                    s.state === "done" ? "border-[var(--blue)] bg-[var(--blue)] text-white" : s.state === "active" ? "border-[var(--blue)]" : "border-[var(--border)]"
+                  }`}
+                >
+                  {s.state === "done" ? "✓" : s.state === "active" ? <span className="h-2 w-2 animate-pulse rounded-full bg-[var(--blue)]" /> : null}
+                </span>
+                <span className={s.state === "todo" ? "text-[var(--gray-light)]" : ""}>{s.label}</span>
+              </li>
             ))}
+          </ol>
+          {status === "starting" && elapsed >= 8 && (
+            <p className="mb-6 rounded-md border border-[var(--border)] p-3 text-xs leading-relaxed text-[var(--text-secondary)]">
+              The model runs on a GPU that sleeps when nobody is using it. Waking it can take a few minutes; after that, a melody takes
+              seconds.
+            </p>
+          )}
+          <div className="flex items-center justify-between font-mono text-xs text-[var(--gray-light)]">
+            <span>{elapsed}s</span>
+            <button onClick={onBack} className="hover:text-[var(--text-primary)]">
+              Cancel
+            </button>
           </div>
+        </>
+      ) : (
+        <div className="flex flex-wrap justify-center gap-3">
+          <button onClick={generate} className="btn btn-melody">
+            Try again
+          </button>
+          <button onClick={onRetake} className="btn btn-ghost">
+            Record new gestures
+          </button>
         </div>
       )}
     </div>

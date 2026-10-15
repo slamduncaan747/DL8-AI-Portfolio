@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
+import type { Hands, Results } from "@mediapipe/hands";
 import { motion, AnimatePresence } from "framer-motion";
 import { GESTURE_COLORS } from "@/lib/types";
 
@@ -17,7 +18,7 @@ export function Tutorial({ onComplete, onSkip }: TutorialProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const handsRef = useRef<any>(null);
+  const handsRef = useRef<Hands | null>(null);
   const animationRef = useRef<number | null>(null);
   
   const handYRef = useRef<number | null>(null);
@@ -46,7 +47,7 @@ export function Tutorial({ onComplete, onSkip }: TutorialProps) {
       try {
         const { Hands } = await import("@mediapipe/hands");
         const hands = new Hands({
-          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
+          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`,
         });
         hands.setOptions({
           maxNumHands: 1,
@@ -54,7 +55,7 @@ export function Tutorial({ onComplete, onSkip }: TutorialProps) {
           minDetectionConfidence: 0.5,
           minTrackingConfidence: 0.5,
         });
-        hands.onResults((results: any) => {
+        hands.onResults((results: Results) => {
           if (results.multiHandLandmarks?.[0]) {
             const lm = results.multiHandLandmarks[0][8];
             const video = videoRef.current;
@@ -122,7 +123,7 @@ export function Tutorial({ onComplete, onSkip }: TutorialProps) {
         return;
       }
 
-      try { await handsRef.current.send({ image: video }); } catch {}
+      try { await handsRef.current?.send({ image: video }); } catch {}
 
       const handY = handYRef.current;
       let detectedGesture = "none";
